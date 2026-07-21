@@ -1,10 +1,43 @@
+<?php
+
+if (!isset($page_title)) {
+    $page_title = "Dashboard";
+}
+
+if (!isset($user_name)) {
+
+    if (isset($_SESSION['user_id'])) {
+
+        $uid = $_SESSION['user_id'];
+
+        $query = mysqli_query($conn, "SELECT full_name FROM users WHERE id='$uid'");
+
+        if ($query && mysqli_num_rows($query) > 0) {
+
+            $user = mysqli_fetch_assoc($query);
+            $user_name = $user['full_name'];
+
+        } else {
+
+            $user_name = "User";
+        }
+
+    } else {
+
+        $user_name = "Guest";
+    }
+}
+
+?>
+
 <div class="topbar">
 
     <div class="top-left">
 
-        <h2>Dashboard</h2>
+        <h2><?php echo $page_title; ?></h2>
 
-        <p>Welcome back,
+        <p>
+            Welcome back,
             <strong><?php echo htmlspecialchars($user_name); ?></strong>
         </p>
 
@@ -14,52 +47,11 @@
 
         <span class="today">
 
+            <i class="fa-solid fa-calendar-days"></i>
+
             <?php echo date("l, d F Y"); ?>
 
         </span>
-
-    </div>
-
-</div>
-<div class="stats">
-
-    <div class="stat-card">
-
-        <h3>Total Foods</h3>
-
-        <h1><?php echo $total; ?></h1>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>Fresh Foods</h3>
-
-        <h1><?php echo $fresh; ?></h1>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>Expiring Soon</h3>
-
-        <h1><?php echo $expiring; ?></h1>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>Expired Foods</h3>
-
-        <h1><?php echo $expired; ?></h1>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>Shared Foods</h3>
-
-        <h1><?php echo $shared; ?></h1>
 
     </div>
 

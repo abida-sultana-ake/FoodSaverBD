@@ -21,7 +21,7 @@ $user_name = $_SESSION["full_name"] ?? "User";
 
     <title>FoodSaver BD</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css">
+   <link rel="stylesheet" href="<?php echo '/FoodSaverBD/assets/css/style.css'; ?>">
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet"
