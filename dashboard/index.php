@@ -1,263 +1,808 @@
 <?php
+
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
+
     header("Location: ../auth/login.php");
+
     exit();
+
 }
 
 include("../config/db.php");
 
 $user_id = $_SESSION['user_id'];
+
 $page_title = "Dashboard";
 
+
 /* Logged In User */
+
 $user_name = "User";
 
-$userQuery = mysqli_query($conn, "SELECT full_name FROM users WHERE id='$user_id'");
+$userQuery = mysqli_query(
 
-if ($userQuery && mysqli_num_rows($userQuery) > 0) {
+    $conn,
+
+    "SELECT full_name
+
+     FROM users
+
+     WHERE id='$user_id'"
+
+);
+
+if (
+
+    $userQuery &&
+
+    mysqli_num_rows($userQuery) > 0
+
+) {
+
     $user = mysqli_fetch_assoc($userQuery);
+
     $user_name = $user['full_name'];
+
 }
 
+
 /* Total Foods */
-$total = mysqli_fetch_assoc(mysqli_query($conn,"
-SELECT COUNT(*) AS total
-FROM food_items
-WHERE user_id='$user_id'
-"))['total'];
+
+$total = mysqli_fetch_assoc(
+
+    mysqli_query(
+
+        $conn,
+
+        "SELECT COUNT(*) AS total
+
+         FROM food_items
+
+         WHERE user_id='$user_id'"
+
+    )
+
+)['total'];
+
 
 /* Fresh Foods */
-$fresh = mysqli_fetch_assoc(mysqli_query($conn,"
-SELECT COUNT(*) AS total
-FROM food_items
-WHERE user_id='$user_id'
-AND expiry_date > DATE_ADD(CURDATE(), INTERVAL 3 DAY)
-"))['total'];
+
+$fresh = mysqli_fetch_assoc(
+
+    mysqli_query(
+
+        $conn,
+
+        "SELECT COUNT(*) AS total
+
+         FROM food_items
+
+         WHERE user_id='$user_id'
+
+         AND expiry_date >
+
+         DATE_ADD(CURDATE(), INTERVAL 3 DAY)"
+
+    )
+
+)['total'];
+
 
 /* Expiring Soon */
-$expiring = mysqli_fetch_assoc(mysqli_query($conn,"
-SELECT COUNT(*) AS total
-FROM food_items
-WHERE user_id='$user_id'
-AND expiry_date BETWEEN CURDATE()
-AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
-"))['total'];
+
+$expiring = mysqli_fetch_assoc(
+
+    mysqli_query(
+
+        $conn,
+
+        "SELECT COUNT(*) AS total
+
+         FROM food_items
+
+         WHERE user_id='$user_id'
+
+         AND expiry_date BETWEEN CURDATE()
+
+         AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)"
+
+    )
+
+)['total'];
+
 
 /* Expired Foods */
-$expired = mysqli_fetch_assoc(mysqli_query($conn,"
-SELECT COUNT(*) AS total
-FROM food_items
-WHERE user_id='$user_id'
-AND expiry_date < CURDATE()
-"))['total'];
+
+$expired = mysqli_fetch_assoc(
+
+    mysqli_query(
+
+        $conn,
+
+        "SELECT COUNT(*) AS total
+
+         FROM food_items
+
+         WHERE user_id='$user_id'
+
+         AND expiry_date < CURDATE()"
+
+    )
+
+)['total'];
+
 
 /* Shared Foods */
-$shared = mysqli_fetch_assoc(mysqli_query($conn,"
-SELECT COUNT(*) AS total
-FROM shared_food
-WHERE user_id='$user_id'
-"))['total'];
+
+$shared = mysqli_fetch_assoc(
+
+    mysqli_query(
+
+        $conn,
+
+        "SELECT COUNT(*) AS total
+
+         FROM shared_food
+
+         WHERE user_id='$user_id'"
+
+    )
+
+)['total'];
+
+
+/* Recent Foods */
+
+$recentFoods = mysqli_query(
+
+    $conn,
+
+    "SELECT
+
+        food_name,
+
+        quantity,
+
+        unit,
+
+        expiry_date
+
+     FROM food_items
+
+     WHERE user_id='$user_id'
+
+     ORDER BY created_at DESC
+
+     LIMIT 5"
+
+);
+
+
+/* Expiring Soon Foods */
+
+$expiringFoods = mysqli_query(
+
+    $conn,
+
+    "SELECT
+
+        food_name,
+
+        quantity,
+
+        unit,
+
+        expiry_date
+
+     FROM food_items
+
+     WHERE user_id='$user_id'
+
+     AND expiry_date >= CURDATE()
+
+     AND expiry_date <=
+
+     DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+
+     ORDER BY expiry_date ASC
+
+     LIMIT 5"
+
+);
+/* Expiry Alerts */
+
+$expiryAlerts = mysqli_query(
+
+    $conn,
+
+    "SELECT
+
+        id,
+
+        food_name,
+
+        quantity,
+
+        unit,
+
+        expiry_date
+
+     FROM food_items
+
+     WHERE user_id='$user_id'
+
+     AND expiry_date <=
+
+     DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+
+     ORDER BY expiry_date ASC
+
+     LIMIT 10"
+
+);
+
+/* Recently Shared Foods */
+
+$recentShared = mysqli_query(
+
+    $conn,
+
+    "SELECT
+
+        sf.quantity,
+
+        sf.status,
+
+        sf.created_at,
+
+        fi.food_name,
+
+        fi.unit
+
+     FROM shared_food sf
+
+     INNER JOIN food_items fi
+
+     ON sf.food_id = fi.id
+
+     WHERE sf.user_id='$user_id'
+
+     ORDER BY sf.created_at DESC
+
+     LIMIT 5"
+
+);
+
 
 include("../includes/header.php");
+
 include("../includes/sidebar.php");
+
 include("../includes/topbar.php");
+
 ?>
+
 
 <div class="main-content">
 
-<div class="stats">
 
-    <div class="stat-card">
-        <h3>Total Foods</h3>
-        <h1><?php echo $total; ?></h1>
+    <!-- Statistics -->
+
+    <div class="stats">
+
+
+        <div class="stat-card">
+
+            <h3>Total Foods</h3>
+
+            <h1>
+
+                <?php echo $total; ?>
+
+            </h1>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>Fresh Foods</h3>
+
+            <h1>
+
+                <?php echo $fresh; ?>
+
+            </h1>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>Expiring Soon</h3>
+
+            <h1>
+
+                <?php echo $expiring; ?>
+
+            </h1>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>Expired Foods</h3>
+
+            <h1>
+
+                <?php echo $expired; ?>
+
+            </h1>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>Shared Foods</h3>
+
+            <h1>
+
+                <?php echo $shared; ?>
+
+            </h1>
+
+        </div>
+
+
     </div>
 
-    <div class="stat-card">
-        <h3>Fresh Foods</h3>
-        <h1><?php echo $fresh; ?></h1>
-    </div>
 
-    <div class="stat-card">
-        <h3>Expiring Soon</h3>
-        <h1><?php echo $expiring; ?></h1>
-    </div>
+    <!-- Dashboard Grid -->
 
-    <div class="stat-card">
-        <h3>Expired Foods</h3>
-        <h1><?php echo $expired; ?></h1>
-    </div>
+    <div class="dashboard-grid">
 
-    <div class="stat-card">
-        <h3>Shared Foods</h3>
-        <h1><?php echo $shared; ?></h1>
-    </div>
 
-</div>
-<?php
+        <!-- Recent Foods -->
 
-/* Recent Foods */
-$recentFoods = mysqli_query($conn,"
-SELECT food_name,
-       quantity,
-       unit,
-       expiry_date
-FROM food_items
-WHERE user_id='$user_id'
-ORDER BY created_at DESC
-LIMIT 5
-");
+        <div class="dashboard-card">
 
-/* Expiring Soon Foods */
-$expiringFoods = mysqli_query($conn,"
-SELECT food_name,
-       expiry_date
-FROM food_items
-WHERE user_id='$user_id'
-AND expiry_date BETWEEN CURDATE()
-AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
-ORDER BY expiry_date ASC
-");
 
-?>
+            <div class="card-header">
 
-<div class="dashboard-grid">
+                <h3>
 
-    <!-- Recent Foods -->
+                    <i class="fa-solid fa-clock-rotate-left"></i>
 
-    <div class="dashboard-card">
+                    Recent Foods
 
-        <h3>Recent Foods</h3>
+                </h3>
 
-        <table class="table">
 
-            <thead>
+    
 
-                <tr>
+            </div>
 
-                    <th>Food</th>
 
-                    <th>Quantity</th>
+            <table class="table">
 
-                    <th>Expiry</th>
 
-                </tr>
+                <thead>
 
-            </thead>
+                    <tr>
 
-            <tbody>
+                        <th>Food</th>
 
-            <?php
+                        <th>Quantity</th>
 
-            if(mysqli_num_rows($recentFoods)>0){
+                        <th>Expiry</th>
 
-                while($food=mysqli_fetch_assoc($recentFoods)){
+                    </tr>
 
-            ?>
+                </thead>
 
-            <tr>
 
-                <td><?php echo htmlspecialchars($food['food_name']); ?></td>
+                <tbody>
 
-                <td>
 
-                    <?php
+                <?php
 
-                    echo $food['quantity']." ".$food['unit'];
 
-                    ?>
+                if (
 
-                </td>
+                    $recentFoods &&
 
-                <td><?php echo $food['expiry_date']; ?></td>
+                    mysqli_num_rows(
 
-            </tr>
+                        $recentFoods
 
-            <?php
+                    ) > 0
+
+                ) {
+
+
+                    while (
+
+                        $food =
+
+                        mysqli_fetch_assoc(
+
+                            $recentFoods
+
+                        )
+
+                    ) {
+
+
+                ?>
+
+
+                    <tr>
+
+
+                        <td>
+
+                            <?php
+
+                            echo htmlspecialchars(
+
+                                $food['food_name']
+
+                            );
+
+                            ?>
+
+                        </td>
+
+
+                        <td>
+
+                            <?php
+
+                            echo $food['quantity']
+
+                                . " "
+
+                                . $food['unit'];
+
+                            ?>
+
+                        </td>
+
+
+                        <td>
+
+                            <?php
+
+                            echo $food['expiry_date'];
+
+                            ?>
+
+                        </td>
+
+
+                    </tr>
+
+
+                <?php
+
+
+                    }
+
 
                 }
 
-            }else{
+                else {
+
+
+                ?>
+
+
+                    <tr>
+
+                        <td colspan="3">
+
+                            No food found.
+
+                        </td>
+
+                    </tr>
+
+
+                <?php
+
+                }
+
+                ?>
+
+
+                </tbody>
+
+
+            </table>
+
+
+        </div>
+
+
+        <!-- Expiring Soon -->
+
+        <div class="dashboard-card">
+
+
+            <div class="card-header">
+
+                <h3>
+
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+
+                    Expiring Soon
+
+                </h3>
+
+
+               
+
+            </div>
+
+
+            <ul class="expiry-list">
+
+
+            <?php
+
+
+            if (
+
+                $expiringFoods &&
+
+                mysqli_num_rows(
+
+                    $expiringFoods
+
+                ) > 0
+
+            ) {
+
+
+                while (
+
+                    $food =
+
+                    mysqli_fetch_assoc(
+
+                        $expiringFoods
+
+                    )
+
+                ) {
+
 
             ?>
 
-            <tr>
 
-                <td colspan="3">
+                <li>
 
-                    No food found.
 
-                </td>
+                    <strong>
 
-            </tr>
+                        <?php
 
-            <?php } ?>
+                        echo htmlspecialchars(
 
-            </tbody>
+                            $food['food_name']
 
-        </table>
+                        );
 
-    </div>
+                        ?>
 
-    <!-- Expiring Soon -->
+                    </strong>
 
-    <div class="dashboard-card">
 
-        <h3>⚠️ Expiring Soon</h3>
+                    <span>
 
-        <ul class="expiry-list">
+                        Expires:
 
-        <?php
+                        <?php
 
-        if(mysqli_num_rows($expiringFoods)>0){
+                        echo $food['expiry_date'];
 
-            while($food=mysqli_fetch_assoc($expiringFoods)){
+                        ?>
 
-        ?>
+                    </span>
 
-            <li>
 
-                <strong>
+                </li>
 
-                    <?php echo htmlspecialchars($food['food_name']); ?>
 
-                </strong>
+            <?php
 
-                <br>
 
-                Expires:
+                }
 
-                <?php echo $food['expiry_date']; ?>
-
-            </li>
-
-        <?php
 
             }
 
-        }else{
+            else {
 
-        ?>
 
-            <li>
+            ?>
 
-                No foods expiring soon.
 
-            </li>
+                <li>
 
-        <?php } ?>
+                    No foods expiring soon.
 
-        </ul>
+                </li>
+
+
+            <?php
+
+            }
+
+            ?>
+
+
+            </ul>
+
+
+        </div>
+
+
+        <!-- Recently Shared -->
+
+        <div class="dashboard-card">
+
+
+            <div class="card-header">
+
+                <h3>
+
+                    <i class="fa-solid fa-hand-holding-heart"></i>
+
+                    Recently Shared
+
+                </h3>
+
+
+               
+
+            </div>
+
+
+            <ul class="shared-list">
+
+
+            <?php
+
+
+            if (
+
+                $recentShared &&
+
+                mysqli_num_rows(
+
+                    $recentShared
+
+                ) > 0
+
+            ) {
+
+
+                while (
+
+                    $share =
+
+                    mysqli_fetch_assoc(
+
+                        $recentShared
+
+                    )
+
+                ) {
+
+
+            ?>
+
+
+                <li>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $share['food_name']
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+
+                    <span>
+
+                        <?php
+
+                        echo $share['quantity']
+
+                            . " "
+
+                            . $share['unit'];
+
+                        ?>
+
+                        -
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $share['status']
+
+                        );
+
+                        ?>
+
+                    </span>
+
+
+                </li>
+
+
+            <?php
+
+
+                }
+
+
+            }
+
+            else {
+
+
+            ?>
+
+
+                <li>
+
+                    No shared food yet.
+
+                </li>
+
+
+            <?php
+
+            }
+
+            ?>
+
+
+            </ul>
+
+
+        </div>
+
 
     </div>
 
+
 </div>
+
 
 <?php
 
+
 mysqli_close($conn);
 
+
 include("../includes/footer.php");
+
 
 ?>

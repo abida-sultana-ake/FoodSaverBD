@@ -8,6 +8,16 @@ if (!isset($_SESSION['user_id'])) {
 
 include("../config/db.php");
 
+if (!isset($conn)) {
+    if (isset($connection)) {
+        $conn = $connection;
+    } elseif (isset($db)) {
+        $conn = $db;
+    } elseif (isset($link)) {
+        $conn = $link;
+    }
+}
+
 $user_id = $_SESSION['user_id'];
 
 /* Logged In User */
@@ -99,6 +109,28 @@ while($row=mysqli_fetch_assoc($result)){
 
 ?>
 <div class="share-card">
+    <?php if (!empty($row['image']) && file_exists("../uploads/" . $row['image'])) { ?>
+
+    <div class="share-image">
+
+        <img
+            src="../uploads/<?php echo htmlspecialchars($row['image']); ?>"
+            alt="<?php echo htmlspecialchars($row['food_name']); ?>"
+        >
+
+    </div>
+
+<?php } else { ?>
+
+    <div class="share-image no-share-image">
+
+        <i class="fa-solid fa-utensils"></i>
+
+        <span>No Image</span>
+
+    </div>
+
+<?php } ?>
 <div class="share-header">
 
     <div>
@@ -129,18 +161,6 @@ while($row=mysqli_fetch_assoc($result)){
     </span>
 
 </div>
-
-
-<?php if(!empty($row['image'])){ ?>
-
-<div class="food-image">
-
-    <img src="../uploads/<?php echo htmlspecialchars($row['image']); ?>" alt="Food Image">
-
-</div>
-
-<?php } ?>
-
 
 <div class="share-body">
 

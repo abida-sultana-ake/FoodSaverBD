@@ -2,314 +2,792 @@
 
 session_start();
 
-include("../config/db.php");
 
-if (!isset($_SESSION["user_id"])) {
+/* Login Check */
+
+if (!isset($_SESSION['user_id'])) {
+
     header("Location: ../auth/login.php");
+
     exit();
+
 }
 
-$message = "";
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+include("../config/db.php");
 
-    $user_id = $_SESSION["user_id"];
 
-    $food_name = trim($_POST["food_name"]);
-    $category_id = $_POST["category_id"];
-    $quantity = $_POST["quantity"];
-    $unit = trim($_POST["unit"]);
-    $purchase_date = $_POST["purchase_date"];
-    $expiry_date = $_POST["expiry_date"];
-    $storage_location = trim($_POST["storage_location"]);
-    $notes = trim($_POST["notes"]);
+$user_id = $_SESSION['user_id'];
 
-    if (
-        empty($food_name) ||
-        empty($category_id) ||
-        empty($quantity) ||
-        empty($unit) ||
-        empty($purchase_date) ||
-        empty($expiry_date)
-    ) {
+$page_title = "Add Food";
 
-        $message = "Please fill in all required fields.";
 
-    } elseif ($expiry_date < $purchase_date) {
+/* Logged In User */
 
-        $message = "Expiry date cannot be before purchase date.";
+$user_name = "User";
 
-    } else {
 
-        $image_name = NULL;
+$userQuery = mysqli_query(
 
-        // Image Upload
-        if (isset($_FILES["image"]) && $_FILES["image"]["error"] == 0) {
+    $conn,
 
-            $allowed_types = ["jpg", "jpeg", "png", "webp"];
+    "SELECT full_name
 
-            $file_name = $_FILES["image"]["name"];
-            $file_tmp = $_FILES["image"]["tmp_name"];
-            $file_size = $_FILES["image"]["size"];
+     FROM users
 
-            $file_ext = strtolower(
-                pathinfo($file_name, PATHINFO_EXTENSION)
-            );
+     WHERE id='$user_id'"
 
-            if (!in_array($file_ext, $allowed_types)) {
+);
 
-                $message = "Only JPG, JPEG, PNG and WEBP images are allowed.";
 
-            } elseif ($file_size > 5 * 1024 * 1024) {
+if (
 
-                $message = "Image size must be less than 5MB.";
+    $userQuery &&
 
-            } else {
+    mysqli_num_rows($userQuery) > 0
 
-                $image_name = uniqid("food_", true) . "." . $file_ext;
+) {
 
-                $upload_path = "../uploads/" . $image_name;
+    $user = mysqli_fetch_assoc($userQuery);
 
-                move_uploaded_file($file_tmp, $upload_path);
-            }
-        }
+    $user_name = $user['full_name'];
 
-        if (empty($message)) {
-
-            $sql = "INSERT INTO food_items
-                    (
-                        user_id,
-                        category_id,
-                        food_name,
-                        quantity,
-                        unit,
-                        purchase_date,
-                        expiry_date,
-                        storage_location,
-                        image,
-                        notes
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-            $stmt = mysqli_prepare($conn, $sql);
-
-            mysqli_stmt_bind_param(
-                $stmt,
-                "iisissssss",
-                $user_id,
-                $category_id,
-                $food_name,
-                $quantity,
-                $unit,
-                $purchase_date,
-                $expiry_date,
-                $storage_location,
-                $image_name,
-                $notes
-            );
-
-            if (mysqli_stmt_execute($stmt)) {
-
-                $message = "Food added successfully!";
-
-            } else {
-
-                $message = "Failed to add food.";
-
-            }
-
-            mysqli_stmt_close($stmt);
-        }
-    }
 }
 
 
 /* Load Categories */
 
-$category_sql = "SELECT id, category_name
-                 FROM categories
-                 ORDER BY category_name ASC";
+$categories = mysqli_query(
 
-$category_result = mysqli_query($conn, $category_sql);
+    $conn,
+
+    "SELECT id, category_name
+
+     FROM categories
+
+     ORDER BY category_name ASC"
+
+);
+
+
+/* Add Food */
+
+if (isset($_POST['add_food'])) {
+
+
+    $category_id = $_POST['category_id'];
+
+    $food_name = trim($_POST['food_name']);
+
+    $quantity = $_POST['quantity'];
+
+    $unit = $_POST['unit'];
+
+    $purchase_date = $_POST['purchase_date'];
+
+    $expiry_date = $_POST['expiry_date'];
+
+    $storage_location = trim(
+
+        $_POST['storage_location']
+
+    );
+
+    $notes = trim($_POST['notes']);
+
+
+    /* Validation */
+
+    if (
+
+        empty($category_id) ||
+
+        empty($food_name) ||
+
+        empty($quantity) ||
+
+        empty($unit) ||
+
+        empty($purchase_date) ||
+
+        empty($expiry_date) ||
+
+        empty($storage_location)
+
+    ) {
+
+        $error = "Please fill all required fields.";
+
+    }
+
+    elseif (
+
+        $expiry_date < $purchase_date
+
+    ) {
+
+        $error =
+
+        "Expiry date cannot be before purchase date.";
+
+    }
+
+    else {
+
+
+        /* Image Upload */
+
+        $image = NULL;
+
+
+        if (
+
+            isset($_FILES['image']) &&
+
+            $_FILES['image']['error']
+
+            == 0
+
+        ) {
+
+
+            $uploadDir = "../uploads/";
+
+
+            if (
+
+                !is_dir($uploadDir)
+
+            ) {
+
+                mkdir(
+
+                    $uploadDir,
+
+                    0777,
+
+                    true
+
+                );
+
+            }
+
+
+            $fileName = time()
+
+                . "_"
+
+                . basename(
+
+                    $_FILES['image']['name']
+
+                );
+
+
+            $targetFile =
+
+                $uploadDir . $fileName;
+
+
+            $fileType = strtolower(
+
+                pathinfo(
+
+                    $targetFile,
+
+                    PATHINFO_EXTENSION
+
+                )
+
+            );
+
+
+            $allowedTypes = [
+
+                "jpg",
+
+                "jpeg",
+
+                "png",
+
+                "webp"
+
+            ];
+
+
+            if (
+
+                in_array(
+
+                    $fileType,
+
+                    $allowedTypes
+
+                )
+
+            ) {
+
+
+                if (
+
+                    move_uploaded_file(
+
+                        $_FILES['image']['tmp_name'],
+
+                        $targetFile
+
+                    )
+
+                ) {
+
+                    $image = $fileName;
+
+                }
+
+            }
+
+        }
+
+
+        /* Insert Food */
+
+        $sql = "
+
+        INSERT INTO food_items
+
+        (
+
+            user_id,
+
+            category_id,
+
+            food_name,
+
+            quantity,
+
+            unit,
+
+            purchase_date,
+
+            expiry_date,
+
+            storage_location,
+
+            image,
+
+            notes
+
+        )
+
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+        ";
+
+
+        $stmt = mysqli_prepare(
+
+            $conn,
+
+            $sql
+
+        );
+
+
+        mysqli_stmt_bind_param(
+
+            $stmt,
+
+            "iis dssssss",
+
+            $user_id,
+
+            $category_id,
+
+            $food_name,
+
+            $quantity,
+
+            $unit,
+
+            $purchase_date,
+
+            $expiry_date,
+
+            $storage_location,
+
+            $image,
+
+            $notes
+
+        );
+
+
+        if (
+
+            mysqli_stmt_execute($stmt)
+
+        ) {
+
+
+            header(
+
+                "Location: index.php?added=1"
+
+            );
+
+            exit();
+
+
+        }
+
+        else {
+
+
+            $error =
+
+            "Failed to add food.";
+
+        }
+
+    }
+
+}
+
+
+/* Header */
+
+include("../includes/header.php");
+
+include("../includes/sidebar.php");
+
+include("../includes/topbar.php");
 
 ?>
+<div class="main-content">
 
-<!DOCTYPE html>
+    <div class="page-title">
 
-<html lang="en">
+        <h2>
 
-<head>
+            <i class="fa-solid fa-plus-circle"></i>
 
-    <meta charset="UTF-8">
-
-    <title>Add Food - FoodSaver BD</title>
-
-</head>
-
-<body>
-
-    <h1>Add Food</h1>
-
-    <?php if (!empty($message)): ?>
-
-        <p>
-            <?php echo htmlspecialchars($message); ?>
-        </p>
-
-    <?php endif; ?>
-
-
-    <form method="POST" enctype="multipart/form-data">
-
-        <label>Food Name</label><br>
-
-        <input
-            type="text"
-            name="food_name"
-            required
-        >
-
-        <br><br>
-
-
-        <label>Category</label><br>
-
-        <select name="category_id" required>
-
-            <option value="">
-                Select Category
-            </option>
-
-            <?php while ($category = mysqli_fetch_assoc($category_result)): ?>
-
-                <option value="<?php echo $category["id"]; ?>">
-
-                    <?php echo htmlspecialchars(
-                        $category["category_name"]
-                    ); ?>
-
-                </option>
-
-            <?php endwhile; ?>
-
-        </select>
-
-        <br><br>
-
-
-        <label>Quantity</label><br>
-
-        <input
-            type="number"
-            name="quantity"
-            step="0.01"
-            min="0"
-            required
-        >
-
-        <br><br>
-
-
-        <label>Unit</label><br>
-
-        <select name="unit" required>
-
-            <option value="">
-                Select Unit
-            </option>
-
-            <option value="kg">
-                Kilogram
-            </option>
-
-            <option value="gram">
-                Gram
-            </option>
-
-            <option value="liter">
-                Liter
-            </option>
-
-            <option value="piece">
-                Piece
-            </option>
-
-            <option value="pack">
-                Pack
-            </option>
-
-        </select>
-
-        <br><br>
-
-
-        <label>Purchase Date</label><br>
-
-        <input
-            type="date"
-            name="purchase_date"
-            required
-        >
-
-        <br><br>
-
-
-        <label>Expiry Date</label><br>
-
-        <input
-            type="date"
-            name="expiry_date"
-            required
-        >
-
-        <br><br>
-
-
-        <label>Storage Location</label><br>
-
-        <input
-            type="text"
-            name="storage_location"
-            placeholder="e.g. Refrigerator"
-        >
-
-        <br><br>
-
-
-        <label>Food Image</label><br>
-
-        <input
-            type="file"
-            name="image"
-            accept=".jpg,.jpeg,.png,.webp"
-        >
-
-        <br><br>
-
-
-        <label>Notes</label><br>
-
-        <textarea
-            name="notes"
-            rows="5"
-        ></textarea>
-
-        <br><br>
-
-
-        <button type="submit">
             Add Food
-        </button>
 
-    </form>
+        </h2>
 
 
-    <br>
+        <a
 
-    <a href="../dashboard/index.php">
-        Back to Dashboard
-    </a>
+            href="index.php"
 
-</body>
+            class="btn"
 
-</html>
+        >
+
+            <i class="fa-solid fa-arrow-left"></i>
+
+            Back
+
+        </a>
+
+    </div>
+
+
+    <?php if (isset($error)) { ?>
+
+        <div class="alert error">
+
+            <?php
+
+            echo htmlspecialchars($error);
+
+            ?>
+
+        </div>
+
+    <?php } ?>
+
+
+    <div class="form-card">
+
+        <form
+
+            method="POST"
+
+            enctype="multipart/form-data"
+
+        >
+
+
+            <div class="form-row">
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Food Name
+
+                    </label>
+
+
+                    <input
+
+                        type="text"
+
+                        name="food_name"
+
+                        placeholder="Enter food name"
+
+                        required
+
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Category
+
+                    </label>
+
+
+                    <select
+
+                        name="category_id"
+
+                        required
+
+                    >
+
+                        <option value="">
+
+                            Select Category
+
+                        </option>
+
+
+                        <?php
+
+                        if (
+
+                            $categories &&
+
+                            mysqli_num_rows(
+
+                                $categories
+
+                            ) > 0
+
+                        ) {
+
+
+                            while (
+
+                                $cat =
+
+                                mysqli_fetch_assoc(
+
+                                    $categories
+
+                                )
+
+                            ) {
+
+                        ?>
+
+                            <option
+
+                                value="<?php
+
+                                echo $cat['id'];
+
+                                ?>"
+
+                            >
+
+                                <?php
+
+                                echo htmlspecialchars(
+
+                                    $cat['category_name']
+
+                                );
+
+                                ?>
+
+                            </option>
+
+                        <?php
+
+                            }
+
+                        }
+
+                        ?>
+
+                    </select>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="form-row">
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Quantity
+
+                    </label>
+
+
+                    <input
+
+                        type="number"
+
+                        name="quantity"
+
+                        step="0.01"
+
+                        min="0.01"
+
+                        placeholder="e.g. 2.5"
+
+                        required
+
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Unit
+
+                    </label>
+
+
+                    <select
+
+                        name="unit"
+
+                        required
+
+                    >
+
+                        <option value="">
+
+                            Select Unit
+
+                        </option>
+
+
+                        <option value="kg">
+
+                            Kilogram (kg)
+
+                        </option>
+
+
+                        <option value="gram">
+
+                            Gram
+
+                        </option>
+
+
+                        <option value="liter">
+
+                            Liter
+
+                        </option>
+
+
+                        <option value="ml">
+
+                            Milliliter (ml)
+
+                        </option>
+
+
+                        <option value="piece">
+
+                            Piece
+
+                        </option>
+
+
+                        <option value="pack">
+
+                            Pack
+
+                        </option>
+
+
+                    </select>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="form-row">
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Purchase Date
+
+                    </label>
+
+
+                    <input
+
+                        type="date"
+
+                        name="purchase_date"
+
+                        required
+
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+
+                        Expiry Date
+
+                    </label>
+
+
+                    <input
+
+                        type="date"
+
+                        name="expiry_date"
+
+                        required
+
+                    >
+
+                </div>
+
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+
+                    Storage Location
+
+                </label>
+
+
+                <input
+
+                    type="text"
+
+                    name="storage_location"
+
+                    placeholder="e.g. Refrigerator"
+
+                    required
+
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+
+                    Food Image
+
+                </label>
+
+
+                <input
+
+                    type="file"
+
+                    name="image"
+
+                    accept="image/jpeg,image/png,image/webp"
+
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+
+                    Notes
+
+                </label>
+
+
+                <textarea
+
+                    name="notes"
+
+                    rows="5"
+
+                    placeholder="Add additional notes..."
+
+                ></textarea>
+
+            </div>
+
+
+            <button
+
+                type="submit"
+
+                name="add_food"
+
+                class="btn"
+
+            >
+
+                <i class="fa-solid fa-plus"></i>
+
+                Add Food
+
+            </button>
+
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<?php
+
+mysqli_close($conn);
+
+include("../includes/footer.php");
+
+?>

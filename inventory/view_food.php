@@ -2,556 +2,649 @@
 
 session_start();
 
+if (!isset($_SESSION['user_id'])) {
+
+    header("Location: ../auth/login.php");
+
+    exit();
+
+}
+
 include("../config/db.php");
 
-if (!isset($_SESSION["user_id"])) {
-    header("Location: ../auth/login.php");
+$user_id = $_SESSION['user_id'];
+
+$page_title = "Food Details";
+
+
+/* Check Food ID */
+
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+
+    header("Location: index.php");
+
     exit();
+
 }
 
-$user_id = $_SESSION["user_id"];
+$food_id = intval($_GET['id']);
 
 
-// Get search value
-$search = "";
+/* Get Food Details */
 
-if (isset($_GET["search"])) {
-    $search = trim($_GET["search"]);
-}
+$sql = "
 
+SELECT
 
-// Get category filter
-$category_filter = "";
+    fi.id,
 
-if (isset($_GET["category"])) {
-    $category_filter = $_GET["category"];
-}
+    fi.food_name,
 
+    fi.quantity,
 
-// Get status filter
-$status_filter = "";
+    fi.unit,
 
-if (isset($_GET["status"])) {
-    $status_filter = $_GET["status"];
-}
+    fi.purchase_date,
 
+    fi.expiry_date,
 
-// Get all categories
-$category_sql = "SELECT id, category_name
-                 FROM categories
-                 ORDER BY category_name ASC";
+    fi.storage_location,
 
-$category_result = mysqli_query($conn, $category_sql);
+    fi.image,
 
+    fi.notes,
 
-// Get food items
-$sql = "SELECT
-            food_items.*,
-            categories.category_name
+    fi.created_at,
 
-        FROM food_items
+    fi.updated_at,
 
-        INNER JOIN categories
-            ON food_items.category_id = categories.id
+    c.category_name
 
-        WHERE food_items.user_id = ?";
+FROM food_items fi
+
+LEFT JOIN categories c
+
+ON fi.category_id = c.id
+
+WHERE fi.id = ?
+
+AND fi.user_id = ?
+
+";
 
 
-// Add search condition
-if (!empty($search)) {
-
-    $sql .= " AND food_items.food_name LIKE ?";
-}
-
-
-// Add category condition
-if (!empty($category_filter)) {
-
-    $sql .= " AND food_items.category_id = ?";
-}
-
-
-$sql .= " ORDER BY food_items.expiry_date ASC";
-
-
-// Prepare statement
 $stmt = mysqli_prepare($conn, $sql);
 
+mysqli_stmt_bind_param(
 
-// Bind parameters dynamically
-if (!empty($search) && !empty($category_filter)) {
+    $stmt,
 
-    $search_param = "%" . $search . "%";
+    "ii",
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "isi",
-        $user_id,
-        $search_param,
-        $category_filter
-    );
+    $food_id,
 
-} elseif (!empty($search)) {
+    $user_id
 
-    $search_param = "%" . $search . "%";
-
-    mysqli_stmt_bind_param(
-        $stmt,
-        "is",
-        $user_id,
-        $search_param
-    );
-
-} elseif (!empty($category_filter)) {
-
-    mysqli_stmt_bind_param(
-        $stmt,
-        "ii",
-        $user_id,
-        $category_filter
-    );
-
-} else {
-
-    mysqli_stmt_bind_param(
-        $stmt,
-        "i",
-        $user_id
-    );
-}
-
+);
 
 mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
 
+
+/* Food Not Found */
+
+if (mysqli_num_rows($result) == 0) {
+
+    header("Location: index.php");
+
+    exit();
+
+}
+
+
+$food = mysqli_fetch_assoc($result);
+
+
+/* Expiry Status */
+
+$today = date("Y-m-d");
+
+$threeDaysLater = date(
+
+    "Y-m-d",
+
+    strtotime("+3 days")
+
+);
+
+
+if ($food['expiry_date'] < $today) {
+
+    $expiryClass = "expired";
+
+    $expiryText = "Expired";
+
+}
+
+elseif (
+
+    $food['expiry_date'] <= $threeDaysLater
+
+) {
+
+    $expiryClass = "expiring";
+
+    $expiryText = "Expiring Soon";
+
+}
+
+else {
+
+    $expiryClass = "fresh";
+
+    $expiryText = "Fresh";
+
+}
+
+
+/* User Name */
+
+$user_name = "User";
+
+$userQuery = mysqli_query(
+
+    $conn,
+
+    "SELECT full_name
+
+     FROM users
+
+     WHERE id='$user_id'"
+
+);
+
+if (
+
+    $userQuery &&
+
+    mysqli_num_rows($userQuery) > 0
+
+) {
+
+    $user = mysqli_fetch_assoc(
+
+        $userQuery
+
+    );
+
+    $user_name = $user['full_name'];
+
+}
+
+
+include("../includes/header.php");
+
+include("../includes/sidebar.php");
+
+include("../includes/topbar.php");
+
 ?>
+<div class="main-content">
 
-<!DOCTYPE html>
+    <div class="page-title">
 
-<html lang="en">
+        <h2>
 
-<head>
+            <i class="fa-solid fa-circle-info"></i>
 
-    <meta charset="UTF-8">
+            Food Details
 
-    <title>My Inventory - FoodSaver BD</title>
-
-</head>
-
-<body>
-
-    <h1>My Food Inventory</h1>
+        </h2>
 
 
-    <a href="add_food.php">
-        Add New Food
-    </a>
+        <a
 
-    <br><br>
+            href="index.php"
 
+            class="btn"
 
-    <!-- =========================
-         SEARCH AND FILTER FORM
-    ========================== -->
-
-    <form method="GET">
-
-        <!-- Search -->
-
-        <input
-            type="text"
-            name="search"
-            placeholder="Search food..."
-            value="<?php echo htmlspecialchars($search); ?>"
         >
 
+            <i class="fa-solid fa-arrow-left"></i>
 
-        <!-- Category -->
+            Back to Inventory
 
-        <select name="category">
+        </a>
 
-            <option value="">
-                All Categories
-            </option>
+    </div>
 
 
-            <?php while ($category = mysqli_fetch_assoc($category_result)): ?>
+    <div class="food-details-card">
 
-                <option
-                    value="<?php echo $category["id"]; ?>"
+
+        <div class="food-details-image">
+
+
+            <?php
+
+            if (
+
+                !empty($food['image']) &&
+
+                file_exists(
+
+                    "../uploads/" .
+
+                    $food['image']
+
+                )
+
+            ) {
+
+            ?>
+
+                <img
+
+                    src="../uploads/<?php
+
+                    echo htmlspecialchars(
+
+                        $food['image']
+
+                    );
+
+                    ?>"
+
+                    alt="<?php
+
+                    echo htmlspecialchars(
+
+                        $food['food_name']
+
+                    );
+
+                    ?>"
+
+                >
+
+            <?php
+
+            }
+
+            else {
+
+            ?>
+
+                <div class="no-image">
+
+                    <i
+
+                        class="fa-solid fa-image"
+
+                    ></i>
+
+
+                    <p>
+
+                        No Image Available
+
+                    </p>
+
+                </div>
+
+            <?php
+
+            }
+
+            ?>
+
+        </div>
+
+
+        <div class="food-details-content">
+
+
+            <div class="food-details-header">
+
+
+                <h1>
+
+                    <?php
+
+                    echo htmlspecialchars(
+
+                        $food['food_name']
+
+                    );
+
+                    ?>
+
+                </h1>
+
+
+                <span
+
+                    class="expiry-badge
+
+                    <?php
+
+                    echo $expiryClass;
+
+                    ?>"
+
+                >
+
+                    <?php
+
+                    echo $expiryText;
+
+                    ?>
+
+                </span>
+
+            </div>
+
+
+            <div class="details-grid">
+
+
+                <div class="detail-item">
+
+                    <span>
+
+                        <i
+
+                            class="fa-solid fa-layer-group"
+
+                        ></i>
+
+                        Category
+
+                    </span>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['category_name']
+
+                            ?? "Uncategorized"
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+                </div>
+
+
+                <div class="detail-item">
+
+                    <span>
+
+                        <i
+
+                            class="fa-solid fa-weight-hanging"
+
+                        ></i>
+
+                        Quantity
+
+                    </span>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['quantity']
+
+                        );
+
+                        ?>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['unit']
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+                </div>
+
+
+                <div class="detail-item">
+
+                    <span>
+
+                        <i
+
+                            class="fa-solid fa-cart-shopping"
+
+                        ></i>
+
+                        Purchase Date
+
+                    </span>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['purchase_date']
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+                </div>
+
+
+                <div class="detail-item">
+
+                    <span>
+
+                        <i
+
+                            class="fa-solid fa-calendar-xmark"
+
+                        ></i>
+
+                        Expiry Date
+
+                    </span>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['expiry_date']
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+                </div>
+
+
+                <div class="detail-item">
+
+                    <span>
+
+                        <i
+
+                            class="fa-solid fa-location-dot"
+
+                        ></i>
+
+                        Storage Location
+
+                    </span>
+
+
+                    <strong>
+
+                        <?php
+
+                        echo htmlspecialchars(
+
+                            $food['storage_location']
+
+                        );
+
+                        ?>
+
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="notes-section">
+
+
+                <h3>
+
+                    <i
+
+                        class="fa-solid fa-note-sticky"
+
+                    ></i>
+
+                    Notes
+
+                </h3>
+
+
+                <p>
 
                     <?php
 
                     if (
-                        $category_filter
-                        == $category["id"]
+
+                        !empty($food['notes'])
+
                     ) {
 
-                        echo "selected";
+                        echo nl2br(
+
+                            htmlspecialchars(
+
+                                $food['notes']
+
+                            )
+
+                        );
+
+                    }
+
+                    else {
+
+                        echo "No notes available.";
 
                     }
 
                     ?>
 
+                </p>
+
+            </div>
+
+
+            <div class="food-details-actions">
+
+
+                <a
+
+                    href="edit_food.php?id=<?php
+
+                    echo $food['id'];
+
+                    ?>"
+
+                    class="btn btn-edit"
+
                 >
 
-                    <?php echo htmlspecialchars(
-                        $category["category_name"]
-                    ); ?>
+                    <i
 
-                </option>
+                        class="fa-solid fa-pen"
 
-            <?php endwhile; ?>
+                    ></i>
 
-        </select>
+                    Edit Food
 
+                </a>
 
-        <!-- Status -->
 
-        <select name="status">
+                <a
 
-            <option value="">
-                All Status
-            </option>
+                    href="delete_food.php?id=<?php
 
-            <option
-                value="fresh"
+                    echo $food['id'];
 
-                <?php
+                    ?>"
 
-                if ($status_filter == "fresh") {
-                    echo "selected";
-                }
+                    class="btn btn-delete"
 
-                ?>
-            >
+                    onclick="return confirm(
 
-                Fresh
+                        'Are you sure you want to delete this food?'
 
-            </option>
+                    );"
 
+                >
 
-            <option
-                value="expiring"
+                    <i
 
-                <?php
+                        class="fa-solid fa-trash"
 
-                if ($status_filter == "expiring") {
-                    echo "selected";
-                }
+                    ></i>
 
-                ?>
-            >
+                    Delete Food
 
-                Expiring Soon
+                </a>
 
-            </option>
+            </div>
 
 
-            <option
-                value="expired"
+        </div>
 
-                <?php
+    </div>
 
-                if ($status_filter == "expired") {
-                    echo "selected";
-                }
+</div>
 
-                ?>
-            >
 
-                Expired
+<?php
 
-            </option>
+mysqli_stmt_close($stmt);
 
-        </select>
+mysqli_close($conn);
 
+include("../includes/footer.php");
 
-        <button type="submit">
-            Search
-        </button>
-
-
-        <a href="view_food.php">
-            Clear
-        </a>
-
-    </form>
-
-
-    <br><br>
-
-
-    <!-- =========================
-         FOOD TABLE
-    ========================== -->
-
-    <table border="1" cellpadding="10">
-
-        <tr>
-
-            <th>Food Name</th>
-
-            <th>Category</th>
-
-            <th>Quantity</th>
-
-            <th>Purchase Date</th>
-
-            <th>Expiry Date</th>
-
-            <th>Status</th>
-
-            <th>Storage</th>
-
-            <th>Actions</th>
-
-        </tr>
-
-
-        <?php if (mysqli_num_rows($result) > 0): ?>
-
-
-            <?php while ($food = mysqli_fetch_assoc($result)): ?>
-
-
-                <?php
-
-                $today = new DateTime();
-
-                $expiry_date = new DateTime(
-                    $food["expiry_date"]
-                );
-
-
-                $difference = $today->diff(
-                    $expiry_date
-                );
-
-
-                $days_remaining = (int)
-                    $difference->format("%r%a");
-
-
-                if ($days_remaining < 0) {
-
-                    $status = "expired";
-
-                } elseif ($days_remaining <= 3) {
-
-                    $status = "expiring";
-
-                } else {
-
-                    $status = "fresh";
-
-                }
-
-
-                // Apply status filter
-
-                if (
-                    !empty($status_filter)
-                    &&
-                    $status_filter != $status
-                ) {
-
-                    continue;
-
-                }
-
-                ?>
-
-
-                <tr>
-
-
-                    <td>
-
-                        <?php echo htmlspecialchars(
-                            $food["food_name"]
-                        ); ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <?php echo htmlspecialchars(
-                            $food["category_name"]
-                        ); ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <?php echo htmlspecialchars(
-                            $food["quantity"]
-                        ); ?>
-
-                        <?php echo htmlspecialchars(
-                            $food["unit"]
-                        ); ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <?php echo $food["purchase_date"]; ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <?php echo $food["expiry_date"]; ?>
-
-                    </td>
-
-
-                    <td>
-
-
-                        <?php if ($status == "expired"): ?>
-
-                            <strong
-                                style="color:red;"
-                            >
-
-                                Expired
-
-                            </strong>
-
-
-                            <br>
-
-                            <?php echo abs(
-                                $days_remaining
-                            ); ?>
-
-                            day(s) ago
-
-
-                        <?php elseif (
-                            $status == "expiring"
-                        ): ?>
-
-                            <strong
-                                style="color:orange;"
-                            >
-
-                                Expiring Soon
-
-                            </strong>
-
-
-                            <br>
-
-                            <?php echo $days_remaining; ?>
-
-                            day(s) remaining
-
-
-                        <?php else: ?>
-
-                            <strong
-                                style="color:green;"
-                            >
-
-                                Fresh
-
-                            </strong>
-
-
-                            <br>
-
-                            <?php echo $days_remaining; ?>
-
-                            day(s) remaining
-
-                        <?php endif; ?>
-
-
-                    </td>
-
-
-                    <td>
-
-                        <?php echo htmlspecialchars(
-                            $food["storage_location"]
-                        ); ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <a
-                            href="edit_food.php?id=<?php echo $food["id"]; ?>"
-                        >
-
-                            Edit
-
-                        </a>
-
-
-                        |
-
-
-                        <a
-                            href="delete_food.php?id=<?php echo $food["id"]; ?>"
-
-                            onclick="return confirm(
-                                'Are you sure you want to delete this food?'
-                            );"
-                        >
-
-                            Delete
-
-                        </a>
-
-                    </td>
-
-
-                </tr>
-
-
-            <?php endwhile; ?>
-
-
-        <?php else: ?>
-
-
-            <tr>
-
-                <td colspan="8">
-
-                    No food items found.
-
-                </td>
-
-            </tr>
-
-
-        <?php endif; ?>
-
-
-    </table>
-
-
-    <br>
-
-
-    <a href="../dashboard/index.php">
-
-        Back to Dashboard
-
-    </a>
-
-
-</body>
-
-</html>
+?>

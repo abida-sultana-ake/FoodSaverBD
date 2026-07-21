@@ -2,89 +2,169 @@
 
 session_start();
 
+if (!isset($_SESSION['user_id'])) {
+
+    header("Location: ../auth/login.php");
+
+    exit();
+
+}
+
 include("../config/db.php");
 
-if (!isset($_SESSION["user_id"])) {
-    header("Location: ../auth/login.php");
+
+$user_id = $_SESSION['user_id'];
+
+
+/* Check Food ID */
+
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+
+    header("Location: index.php");
+
     exit();
+
 }
 
-$user_id = $_SESSION["user_id"];
 
-if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
-    header("Location: view_food.php");
-    exit();
-}
-
-$food_id = (int) $_GET["id"];
+$food_id = intval($_GET['id']);
 
 
-/* =================================
-   GET FOOD IMAGE BEFORE DELETE
-================================= */
+/* Get Food Image Before Delete */
 
-$sql = "SELECT image
-        FROM food_items
-        WHERE id = ?
-        AND user_id = ?";
+$sql = "
+
+SELECT image
+
+FROM food_items
+
+WHERE id = ?
+
+AND user_id = ?
+
+";
+
 
 $stmt = mysqli_prepare($conn, $sql);
 
 mysqli_stmt_bind_param(
+
     $stmt,
+
     "ii",
+
     $food_id,
+
     $user_id
+
 );
 
 mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
 
-if (mysqli_num_rows($result) != 1) {
-    header("Location: view_food.php");
+
+if (mysqli_num_rows($result) == 0) {
+
+    header("Location: index.php");
+
     exit();
+
 }
+
 
 $food = mysqli_fetch_assoc($result);
 
-mysqli_stmt_close($stmt);
+
+/* Delete Food */
+
+$deleteSql = "
+
+DELETE FROM food_items
+
+WHERE id = ?
+
+AND user_id = ?
+
+";
 
 
-/* =================================
-   DELETE FOOD
-================================= */
+$deleteStmt = mysqli_prepare(
 
-$sql = "DELETE FROM food_items
-        WHERE id = ?
-        AND user_id = ?";
+    $conn,
 
-$stmt = mysqli_prepare($conn, $sql);
+    $deleteSql
 
-mysqli_stmt_bind_param(
-    $stmt,
-    "ii",
-    $food_id,
-    $user_id
 );
 
-if (mysqli_stmt_execute($stmt)) {
+mysqli_stmt_bind_param(
 
-    /* Delete image file if exists */
+    $deleteStmt,
+
+    "ii",
+
+    $food_id,
+
+    $user_id
+
+);
+
+
+if (
+
+    mysqli_stmt_execute($deleteStmt)
+
+) {
+
+
+    /* Delete Image File */
 
     if (
-        !empty($food["image"]) &&
-        file_exists("../uploads/" . $food["image"])
+
+        !empty($food['image']) &&
+
+        file_exists(
+
+            "../uploads/" .
+
+            $food['image']
+
+        )
+
     ) {
 
-        unlink("../uploads/" . $food["image"]);
+        unlink(
+
+            "../uploads/" .
+
+            $food['image']
+
+        );
+
     }
+
+
+    header(
+
+        "Location: index.php?deleted=1"
+
+    );
+
+    exit();
+
 }
+
+else {
+
+    echo "Failed to delete food.";
+
+}
+
 
 mysqli_stmt_close($stmt);
 
-header("Location: view_food.php");
+mysqli_stmt_close($deleteStmt);
 
-exit();
+mysqli_close($conn);
 
 ?>
