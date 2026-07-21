@@ -17,13 +17,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     } else {
 
-        $sql = "SELECT id, full_name, email, password 
-                FROM users 
-                WHERE email = ?";
+        $sql = "SELECT id, full_name, email, password
+                FROM users
+                WHERE email=?";
 
         $stmt = mysqli_prepare($conn, $sql);
 
         mysqli_stmt_bind_param($stmt, "s", $email);
+
         mysqli_stmt_execute($stmt);
 
         $result = mysqli_stmt_get_result($stmt);
@@ -33,6 +34,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $user = mysqli_fetch_assoc($result);
 
             if (password_verify($password, $user["password"])) {
+
+                session_regenerate_id(true);
 
                 $_SESSION["user_id"] = $user["id"];
                 $_SESSION["full_name"] = $user["full_name"];
@@ -60,64 +63,168 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
 
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-    <title>Login - FoodSaver BD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Login | FoodSaver BD</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
 </head>
 
 <body>
 
-    <h1>FoodSaver BD</h1>
+<div class="auth-container">
 
-    <h2>Login</h2>
+<div class="auth-card">
 
-    <?php if (!empty($message)): ?>
+<div class="logo">
 
-        <p>
-            <?php echo htmlspecialchars($message); ?>
-        </p>
+<i class="fa-solid fa-leaf"></i>
 
-    <?php endif; ?>
+<h2>FoodSaver BD</h2>
 
-    <form method="POST">
+<p>Reduce Food Waste. Save More.</p>
 
-        <label>Email</label><br>
+</div>
 
-        <input
-            type="email"
-            name="email"
-            required
-        >
+<h3>Login</h3>
 
-        <br><br>
+<?php if(!empty($message)){ ?>
 
-        <label>Password</label><br>
+<div class="alert">
 
-        <input
-            type="password"
-            name="password"
-            required
-        >
+<?php echo htmlspecialchars($message); ?>
 
-        <br><br>
+</div>
 
-        <button type="submit">
-            Login
-        </button>
+<?php } ?>
 
-    </form>
+<form method="POST">
 
-    <p>
-        Don't have an account?
-        <a href="register.php">
-            Register
-        </a>
-    </p>
+<div class="input-group">
+
+<label>Email</label>
+
+<div class="input-box">
+
+<i class="fa-solid fa-envelope"></i>
+
+<input
+type="email"
+name="email"
+placeholder="Enter your email"
+required>
+
+</div>
+
+</div>
+
+<div class="input-group">
+
+<label>Password</label>
+
+<div class="input-box">
+
+<i class="fa-solid fa-lock"></i>
+
+<input
+type="password"
+id="password"
+name="password"
+placeholder="Enter your password"
+required>
+
+<button
+type="button"
+class="toggle-password"
+onclick="togglePassword()">
+
+<i
+id="eye"
+class="fa-solid fa-eye">
+</i>
+
+</button>
+
+</div>
+</div>
+
+<div class="options">
+
+<label>
+
+<button
+type="submit"
+class="login-btn">
+
+<i class="fa-solid fa-right-to-bracket"></i>
+
+Login
+
+</button>
+
+</form>
+
+<div class="bottom-text">
+
+<p>
+
+Don't have an account?
+
+<a href="register.php">
+
+Register
+
+</a>
+
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+function togglePassword(){
+
+    const password =
+    document.getElementById("password");
+
+    const eye =
+    document.getElementById("eye");
+
+    if(password.type==="password"){
+
+        password.type="text";
+
+        eye.classList.remove("fa-eye");
+
+        eye.classList.add("fa-eye-slash");
+
+    }else{
+
+        password.type="password";
+
+        eye.classList.remove("fa-eye-slash");
+
+        eye.classList.add("fa-eye");
+
+    }
+
+}
+
+</script>
 
 </body>
 
